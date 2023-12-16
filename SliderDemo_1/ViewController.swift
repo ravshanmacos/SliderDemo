@@ -79,7 +79,7 @@ class ViewController: UIViewController {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.widthAnchor.constraint(equalToConstant: 50).isActive = true
-        view.heightAnchor.constraint(equalToConstant: 45).isActive = true
+        view.heightAnchor.constraint(equalToConstant: 50).isActive = true
         view.isUserInteractionEnabled = true
         view.addGestureRecognizer(tapGesture)
         view.addSubview(imageView)
@@ -93,12 +93,16 @@ class ViewController: UIViewController {
     private var pagers: [UIView] = []
     private var currentSlide = 0
     private var widthConstraint: NSLayoutConstraint?
+    private let shapeLayer = CAShapeLayer()
+    private var currentSlice: CGFloat = 0
+    private var lastSlice: CGFloat = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         setupCollectionView()
         setupSlideControl()
+        setShape()
     }
 
     private func setupCollectionView() {
@@ -117,7 +121,36 @@ class ViewController: UIViewController {
         ])
     }
     
+    private func setShape() {
+        
+        currentSlice = CGFloat(1) / CGFloat(sliderData.count)
+        
+        let center = CGPoint(x: 25.5, y: 25.5)
+        let nextStroke = UIBezierPath(arcCenter: center, radius: 23 , startAngle: -(.pi/2), endAngle: 5, clockwise: true)
+       
+        let trackShape = CAShapeLayer()
+        trackShape.path = nextStroke.cgPath
+        trackShape.fillColor = UIColor.clear.cgColor
+        trackShape.strokeColor = UIColor.white.cgColor
+        trackShape.lineWidth = 3
+        trackShape.opacity = 0.1
+        nextBtn.layer.addSublayer(trackShape)
+       
+        
+        shapeLayer.path = nextStroke.cgPath
+        shapeLayer.fillColor = UIColor.clear.cgColor
+        shapeLayer.strokeColor = UIColor.white.cgColor
+        shapeLayer.lineWidth = 3
+        shapeLayer.lineCap = .round
+        shapeLayer.strokeStart = 0
+        shapeLayer.strokeEnd = 0
+        
+        nextBtn.layer.addSublayer(shapeLayer)
+    }
+    
     private func setupSlideControl() {
+        
+        
         let pagerStack = UIStackView()
         pagerStack.axis = .horizontal
         pagerStack.spacing = 5
@@ -125,11 +158,13 @@ class ViewController: UIViewController {
         pagerStack.distribution = .fill
         
         for tag in 1...sliderData.count {
+            let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(scrollToSlide))
             let pager = UIView()
             pager.tag = tag
             pager.layer.cornerRadius = 5
             pager.backgroundColor = .white
             pager.translatesAutoresizingMaskIntoConstraints = false
+            pager.addGestureRecognizer(tapRecognizer)
             self.pagers.append(pager)
             pagerStack.addArrangedSubview(pager)
         }
@@ -141,8 +176,19 @@ class ViewController: UIViewController {
         hStack.addArrangedSubview(nextBtn)
     }
     
-    @IBAction func nextSlide(sender: UIButton) {
+    @IBAction func scrollToSlide(sender: UITapGestureRecognizer) {
         
+        guard let index = sender.view?.tag, currentSlide != index - 1 else { return }
+        let indexPath = IndexPath(row: index-1, section: 0)
+        collectionView.scrollToItem(at: indexPath, at: .centeredHorizontally, animated: true)
+        currentSlide = index-1
+    }
+    
+    @IBAction func nextSlide(sender: UIButton) {
+        guard currentSlide < 2 else { return }
+        currentSlide += 1
+        let nextSlideIndexPath = IndexPath(row: currentSlide, section: 0)
+        collectionView.scrollToItem(at: nextSlideIndexPath, at: .centeredHorizontally, animated: true)
     }
 
 }
@@ -159,7 +205,7 @@ extension ViewController: UICollectionViewDelegate, UICollectionViewDataSource {
         cell.textLabel.text = item.text
         cell.titleLabel.text = item.title
         cell.contentView.backgroundColor = sliderData[indexPath.item].color
-        //cell.setupAnimation(animationName: item.animationName)
+        cell.setupAnimation(animationName: item.animationName)
         return cell
     }
     
@@ -182,6 +228,18 @@ extension ViewController: UICollectionViewDelegate, UICollectionViewDataSource {
             widthConstraint?.isActive = true
             page.heightAnchor.constraint(equalToConstant: 10).isActive = true
         }
+        
+        let currentIndex = currentSlice * CGFloat(indexPath.item + 1)
+        
+        let animation = CABasicAnimation(keyPath: "strokeEnd")
+        animation.fromValue = lastSlice
+        animation.toValue = currentIndex
+        animation.isRemovedOnCompletion = false
+        animation.fillMode = .forwards
+        animation.duration = 0.5
+        shapeLayer.add(animation, forKey: "animation")
+        
+        lastSlice = currentIndex
     }
 }
 
